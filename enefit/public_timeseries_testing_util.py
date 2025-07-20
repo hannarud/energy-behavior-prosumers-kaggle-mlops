@@ -71,8 +71,10 @@ class MockApi:
                 print('You must call `predict()` successfully before you can continue with `iter_test()`', flush=True)
                 yield None
 
-        with open('submission.csv', 'w') as f_open:
+        submission_file_name = 'submission.csv'
+        with open(submission_file_name, 'w') as f_open:
             pd.concat(self.predictions).to_csv(f_open, index=False)
+        print(f"Submission file saved to {submission_file_name}")
         self._status = 'finished'
 
     def predict(self, user_predictions: pd.DataFrame):

@@ -275,6 +275,3 @@ processed_data/
 tmp/
 temp/
 cache/
-
-# Activate directory (appears to be activation related)
-activate/ 
