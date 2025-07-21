@@ -218,13 +218,30 @@ class MLPipeline:
         logging.info("Training pipeline completed successfully")
         return self.model_trainer
     
-    def run_prediction_pipeline(self, model_path: Optional[str] = None, test_mode: str = 'local') -> Optional[pd.DataFrame]:
+    def run_prediction_pipeline(self, model_path: Optional[str] = None, mlflow_run_id: Optional[str] = None,
+                              mlflow_model_name: Optional[str] = None, mlflow_model_version: Optional[str] = None,
+                              mlflow_model_stage: str = "Production", test_mode: str = 'local') -> Optional[pd.DataFrame]:
         """Run the prediction pipeline."""
         logging.info("Starting prediction pipeline...")
         
-        # Load model if path provided
-        if model_path:
-            self.model_trainer = ModelTrainer.load_model(model_path)
+        # Load model based on provided parameters
+        if mlflow_run_id:
+            # Load from MLFlow run
+            logging.info(f"Loading model from MLFlow run: {mlflow_run_id}")
+            self.model_trainer = ModelTrainer.load_model_from_mlflow_run(self.config, mlflow_run_id)
+        elif mlflow_model_name or mlflow_model_version:
+            # Load from MLFlow registry
+            logging.info(f"Loading model from MLFlow registry: {mlflow_model_name} v{mlflow_model_version} stage:{mlflow_model_stage}")
+            self.model_trainer = ModelTrainer.load_model_from_mlflow_registry(
+                self.config, mlflow_model_name, mlflow_model_version, mlflow_model_stage
+            )
+        elif model_path:
+            # Load from file (legacy)
+            logging.info(f"Loading model from file: {model_path}")
+            self.model_trainer = ModelTrainer.load_model(model_path, self.config)
+        
+        if not self.model_trainer or not self.model_trainer.model:
+            raise ValueError("No valid model could be loaded for prediction")
         
         # Run predictions
         prediction_pipeline = PredictionPipeline(self.config, self.model_trainer)
@@ -240,6 +257,10 @@ def parse_arguments():
     
     parser.add_argument('--mode', choices=['train', 'predict', 'full'], default='full',
                        help='Pipeline mode: train only, predict only, or full pipeline')
+    parser.add_argument('--config-file', default='config.yaml',
+                       help='Path to configuration YAML file')
+    parser.add_argument('--environment', default='default',
+                       help='Configuration environment (default, development, production)')
     parser.add_argument('--data-dir', default='data/', 
                        help='Directory containing input data files')
     parser.add_argument('--output-dir', default='output/',
@@ -248,6 +269,14 @@ def parse_arguments():
                        help='Directory for model checkpoints')
     parser.add_argument('--model-path', type=str,
                        help='Path to saved model (for prediction mode)')
+    parser.add_argument('--mlflow-run-id', type=str,
+                       help='MLFlow run ID to load model from')
+    parser.add_argument('--mlflow-model-name', type=str,
+                       help='MLFlow registered model name')
+    parser.add_argument('--mlflow-model-version', type=str,
+                       help='MLFlow model version')
+    parser.add_argument('--mlflow-model-stage', default='Production',
+                       help='MLFlow model stage (Production, Staging, etc.)')
     parser.add_argument('--debug', action='store_true',
                        help='Run in debug mode with reduced iterations')
     parser.add_argument('--n-day-lags', type=int, default=15,
@@ -269,14 +298,22 @@ def main():
     # Setup logging
     Logger.setup_logging(args.log_level)
     
-    # Create config
-    config = Config()
-    config.data_dir = args.data_dir
-    config.output_dir = args.output_dir
-    config.model_dir = args.model_dir
-    config.debug = args.debug
-    config.n_day_lags = args.n_day_lags
-    config.n_estimators = args.n_estimators
+    # Create config from YAML file
+    config = Config(config_file=args.config_file, environment=args.environment)
+    
+    # Override config with command line arguments if provided
+    if args.data_dir != 'data/':
+        config.data_dir = args.data_dir
+    if args.output_dir != 'output/':
+        config.output_dir = args.output_dir
+    if args.model_dir != 'models/':
+        config.model_dir = args.model_dir
+    if args.debug:
+        config.debug = args.debug
+    if args.n_day_lags != 15:
+        config.n_day_lags = args.n_day_lags
+    if args.n_estimators != 1500:
+        config.n_estimators = args.n_estimators
     
     # Create output directories
     os.makedirs(config.output_dir, exist_ok=True)
@@ -293,7 +330,14 @@ def main():
         if args.mode in ['predict', 'full']:
             # Run prediction
             model_path = args.model_path if args.model_path else str(Path(config.model_dir) / "xgboost_model.pkl")
-            results = pipeline.run_prediction_pipeline(model_path, args.test_mode)
+            results = pipeline.run_prediction_pipeline(
+                model_path=model_path,
+                mlflow_run_id=args.mlflow_run_id,
+                mlflow_model_name=args.mlflow_model_name,
+                mlflow_model_version=args.mlflow_model_version,
+                mlflow_model_stage=args.mlflow_model_stage,
+                test_mode=args.test_mode
+            )
             
             if results is not None and not results.empty:
                 output_path = Path(config.output_dir) / "submission.csv"

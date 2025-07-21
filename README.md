@@ -23,27 +23,31 @@ Energy prosumers are individuals, businesses, or organizations that both consume
 More information on the problem statement, data and other insights for this project can be found [here](https://www.kaggle.com/c/predict-energy-behavior-of-prosumers).
 
 ## Project Outline
-- [notebooks](https://github.com/hannarud/energy-behavior-prosumers-kaggle-mlops/tree/main/notebooks) <br> 
-Here we create notebooks where we clean and preprocess the data, before training our ml models. We train different models and select the best performing model. <br>
-We spend minimal time building the model so as to focus on the major goal of the project (MLOps). 
 
-- [MLFlow and Model Registry](https://github.com/Tobi-Ade/mlops_customer_churn_prediction/blob/main/notebooks/churn_prediction_mlflow.ipynb) <br>
-We use MLFlow and Model Registry to track the performance of our models. This gives us a structured way to monitor and store our artifacts (models, preprocessors, etc).
-We access our stored artifacts multiple times to train new models.
+### ✅ Completed Components
 
-- [Workflow Orchestration with Prefect](https://github.com/Tobi-Ade/mlops_customer_churn_prediction/tree/main/workflow-orchestration) <br>
-Prefect allows us to set a defined structure for our project. We can deploy our project and use work queues to track our deployments and run them whenever we wanr as prefect  flows. <br>
-The prefect ui also provides an interface to see our flow runs and logs from every run.
+- **[ML Pipeline](src/energy_behavior_prosumers/)** <br> 
+Production-ready ML pipeline with feature engineering, model training, and prediction capabilities. Includes comprehensive configuration management and logging.
 
-- [Deployment](https://github.com/Tobi-Ade/mlops_customer_churn_prediction/tree/main/deployment) <br>
-Here we deploy our model as a web service using flask. We also use docker o add an eextra layer of isolation for the web service. We build a version of the service using our artifacts stored in model registry.
+- **[MLFlow Integration](MLFLOW_README.md)** <br>
+Complete MLFlow setup with experiment tracking, model registry, and deployment capabilities. Includes Docker-based server with MySQL backend for production-ready model management.
 
-- [Monitoring with Evidently, Grafana, Adminer]() <br>
-We use evidently to track how model performance by defining metrics on our data. Adminer to manage por postgres database where store our metrics from evidently. <br>
-Then we use Grafana to pull these data metrics and create dashboards to make monitoring these metrics easier.
+- **[Notebooks](notebooks/)** <br> 
+Exploratory data analysis and model development notebooks for understanding the energy behavior prediction problem.
 
-- [Best-Practices]() <br>
-Here we create tests for our scripts to make sure the result of every run is exactly what we intended. We use Pytest, DeepDiff, and Make to run and automate the tests.
+### 🚧 Planned Components
+
+- **Workflow Orchestration with Prefect** <br>
+Orchestration system for automated training, validation, and deployment workflows with scheduling and monitoring capabilities.
+
+- **Model Deployment** <br>
+REST API service for real-time energy behavior predictions using models from MLFlow registry, containerized with Docker.
+
+- **Monitoring and Observability** <br>
+Model performance monitoring with Evidently, metrics storage in database, and Grafana dashboards for real-time visibility.
+
+- **Testing and Quality Assurance** <br>
+Comprehensive test suite with Pytest for pipeline validation, data quality checks, and model performance testing.
 
 ## How to Run the Project: Quick Start
 
@@ -55,14 +59,26 @@ uv sync
 
 # 2. Add your data to data/ directory
 
-# 3. Run the full ML pipeline
-uv run python -m src.energy_behavior_prosumers.pipeline
-# OR
-uv run ./scripts/run_pipeline.sh full
+# 3. Start MLFlow server (for experiment tracking)
+./scripts/start_mlflow.sh
 
-# 4. For development/debugging
-uv run ./scripts/run_pipeline.sh debug
+# 4. Run the full ML pipeline with MLFlow tracking
+./scripts/run_pipeline.sh full
+
+# 5. For development/debugging
+./scripts/run_pipeline.sh debug
+
+# 6. View results in MLFlow UI: http://localhost:5001
 ```
+
+### MLFlow Integration
+
+This project now includes comprehensive MLFlow integration for:
+- **Experiment Tracking**: Automatic logging of parameters, metrics, and models
+- **Model Registry**: Centralized model storage and versioning
+- **Model Deployment**: Load models from registry for inference
+
+See [MLFLOW_README.md](MLFLOW_README.md) for detailed MLFlow documentation.
 
 ## ML Pipeline Architecture
 
@@ -95,14 +111,29 @@ energy-behavior-prosumers-kaggle-mlops/
 # Full pipeline (training + prediction)
 ./scripts/run_pipeline.sh full
 
-# Training only with custom parameters
-./scripts/run_pipeline.sh train --n-estimators 2000
+# Training with MLFlow tracking
+./scripts/run_pipeline.sh train --environment production
 
-# Prediction with specific model
-./scripts/run_pipeline.sh predict --model-path models/my_model.pkl
+# Prediction with MLFlow model registry
+./scripts/run_pipeline.sh predict --mlflow-model-stage Production
+
+# Prediction with specific MLFlow run
+./scripts/run_pipeline.sh predict --mlflow-run-id abc123def456
 
 # Debug mode (fast training)
 ./scripts/run_pipeline.sh debug
+```
+
+### 📊 **MLFlow Commands**
+```bash
+# Start MLFlow server
+./scripts/start_mlflow.sh
+
+# Stop MLFlow server
+./scripts/stop_mlflow.sh
+
+# View MLFlow UI: http://localhost:5001
+# Database UI: http://localhost:8080
 ```
 
 ### 🔧 Configuration Options
