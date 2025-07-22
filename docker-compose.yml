@@ -15,16 +15,37 @@ services:
       - mlflow_network
     restart: unless-stopped
 
+  localstack:
+    image: localstack/localstack:latest
+    container_name: mlflow_localstack
+    ports:
+      - "4566:4566"  # LocalStack edge port
+    environment:
+      - SERVICES=s3
+      - DEBUG=1
+      - DATA_DIR=/var/lib/localstack
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - localstack_data:/var/lib/localstack
+    networks:
+      - mlflow_network
+    restart: unless-stopped
+
   mlflow:
     image: python:3.10-slim
     container_name: mlflow_server
     depends_on:
       - mysql
+      - localstack
     ports:
       - "5001:5001"
     environment:
       - MLFLOW_BACKEND_STORE_URI=mysql+pymysql://mlflow_user:mlflow_password@mysql:3306/mlflow_db
-      - MLFLOW_DEFAULT_ARTIFACT_ROOT=/mlflow/mlruns
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+      - MLFLOW_S3_ENDPOINT_URL=http://localstack:4566
     volumes:
       - ./mlflow:/mlflow:rw
       - ./requirements_mlflow.txt:/requirements.txt
@@ -35,10 +56,22 @@ services:
     working_dir: /mlflow
     command: >
       sh -c "
+        apt-get update && apt-get install -y curl &&
         pip install -r /requirements.txt &&
-        mkdir -p /mlflow/mlruns &&
-        chmod 777 -R /mlflow/mlruns &&
-        mlflow server --backend-store-uri mysql+pymysql://mlflow_user:mlflow_password@mysql:3306/mlflow_db --default-artifact-root /mlflow/mlruns --host 0.0.0.0 --port 5001
+        
+        # Wait for LocalStack to be ready with simpler check
+        echo 'Waiting for LocalStack to be ready...' &&
+        until curl -s --connect-timeout 5 http://localstack:4566/_localstack/health >/dev/null 2>&1; do
+          echo 'LocalStack not ready yet, waiting...'
+          sleep 5
+        done
+        
+        echo 'LocalStack is ready! Creating S3 bucket...' &&
+        # Create S3 bucket for MLflow artifacts
+        aws --endpoint-url=http://localstack:4566 s3 mb s3://mlflow-artifacts || true
+        
+        echo 'Starting MLflow server...' &&
+        mlflow server --backend-store-uri mysql+pymysql://mlflow_user:mlflow_password@mysql:3306/mlflow_db --default-artifact-root s3://mlflow-artifacts/ --host 0.0.0.0 --port 5001
       "
 
   # Optional: Adminer for database management
@@ -55,6 +88,7 @@ services:
 
 volumes:
   mysql_data:
+  localstack_data:
 
 networks:
   mlflow_network:

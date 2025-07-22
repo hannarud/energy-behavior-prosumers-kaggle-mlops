@@ -2,6 +2,7 @@ import torch
 import yaml
 from pathlib import Path
 from typing import Optional, Dict, Any
+import os
 
 
 class Config:
@@ -38,6 +39,7 @@ class Config:
         self.mlflow_artifact_location = mlflow_config.get('artifact_location')
         self.mlflow_registered_model_name = mlflow_config.get('registered_model_name', 'energy_behavior_model')
         self.mlflow_tags = mlflow_config.get('tags', {})
+        self.mlflow_s3_endpoint_url = mlflow_config.get('s3_endpoint_url', os.getenv('MLFLOW_S3_ENDPOINT_URL'))
         
         # File paths
         self.files = {
@@ -65,4 +67,5 @@ class Config:
             'mlflow_tracking_uri': self.mlflow_tracking_uri,
             'mlflow_experiment_name': self.mlflow_experiment_name,
             'mlflow_registered_model_name': self.mlflow_registered_model_name,
+            'mlflow_s3_endpoint_url': self.mlflow_s3_endpoint_url,
         }

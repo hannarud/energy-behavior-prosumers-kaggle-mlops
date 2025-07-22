@@ -28,6 +28,12 @@ class MLFlowManager:
     def setup_mlflow(self):
         """Setup MLFlow tracking and experiment."""
         try:
+            # Configure S3 endpoint for LocalStack if provided
+            if self.config.mlflow_s3_endpoint_url:
+                import os
+                os.environ['MLFLOW_S3_ENDPOINT_URL'] = self.config.mlflow_s3_endpoint_url
+                logging.info(f"S3 endpoint URL configured: {self.config.mlflow_s3_endpoint_url}")
+            
             # Set tracking URI
             mlflow.set_tracking_uri(self.config.mlflow_tracking_uri)
             self.client = MlflowClient(self.config.mlflow_tracking_uri)

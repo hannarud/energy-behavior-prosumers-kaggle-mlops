@@ -5,6 +5,12 @@
 
 set -e
 
+# Setup LocalStack S3 environment for MLflow artifacts
+export AWS_ACCESS_KEY_ID=test
+export AWS_SECRET_ACCESS_KEY=test
+export AWS_DEFAULT_REGION=us-east-1
+export MLFLOW_S3_ENDPOINT_URL=http://localhost:4566
+
 # Default values
 MODE="full"
 DEBUG=false
@@ -64,6 +70,10 @@ while [[ $# -gt 0 ]]; do
             echo "  full     Run full pipeline (default)"
             echo "  debug    Run in debug mode (uses development environment)"
             echo ""
+            echo "Environment:"
+            echo "  LocalStack S3 environment is automatically configured for MLflow artifacts"
+            echo "  Requires LocalStack to be running on http://localhost:4566"
+            echo ""
             echo "Options:"
             echo "  --environment ENV            Configuration environment (default, development, production)"
             echo "  --n-estimators NUM           Number of XGBoost estimators"
@@ -80,6 +90,10 @@ while [[ $# -gt 0 ]]; do
             echo "  $0 predict --mlflow-model-name energy_behavior_model --mlflow-model-stage Production"
             echo "  $0 predict --mlflow-run-id abc123def456"
             echo "  $0 debug"
+            echo ""
+            echo "Prerequisites:"
+            echo "  Make sure MLflow and LocalStack are running:"
+            echo "  ./scripts/start_mlflow.sh"
             exit 0
             ;;
         *)
@@ -124,12 +138,20 @@ if [ -n "$MLFLOW_MODEL_STAGE" ]; then
 fi
 
 echo "🚀 Running Energy Behavior Prosumers Pipeline..."
-echo "Mode: $MODE"
-echo "Environment: $ENVIRONMENT"
+echo ""
+echo "🔧 Configuration:"
+echo "   Mode: $MODE"
+echo "   Environment: $ENVIRONMENT"
 if [ "$DEBUG" = true ]; then
-    echo "Debug: Enabled"
+    echo "   Debug: Enabled"
 fi
-echo "Command: $CMD"
+echo ""
+echo "☁️  LocalStack S3 Configuration:"
+echo "   Endpoint: $MLFLOW_S3_ENDPOINT_URL"
+echo "   Region: $AWS_DEFAULT_REGION"
+echo "   Artifacts will be stored in LocalStack S3"
+echo ""
+echo "▶️  Command: $CMD"
 echo ""
 
 # Run the pipeline
